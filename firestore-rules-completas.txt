@@ -7,8 +7,12 @@ service cloud.firestore {
       // Qualquer usuário autenticado pode ler qualquer documento de usuário
       allow read: if request.auth != null;
       
-      // Usuário pode criar seu próprio documento
-      allow create: if request.auth != null && request.auth.uid == userId;
+      // Usuário pode criar seu próprio documento OU admin/superadmin podem criar voluntários pré-cadastrados
+      allow create: if request.auth != null && (
+                       request.auth.uid == userId ||
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'] ||
+                       request.auth.uid == 'HiCC8lYwRBgWJ0ATRYOV2rtc1ND2'
+                    );
       
       // Usuário pode atualizar seu próprio documento OU admin/superadmin pode atualizar qualquer usuário
       allow update: if request.auth != null && (
@@ -152,6 +156,7 @@ service cloud.firestore {
 //
 // ✅ Qualquer usuário autenticado possa ler users, available_dates e escalas
 // ✅ Usuários possam criar/atualizar apenas seus próprios dados
+// ✅ Admins e super admins possam criar novos voluntários (pré-cadastro)
 // ✅ Admins possam gerenciar datas e escalas
 // ✅ Super admins tenham acesso total
 // ✅ O super admin hardcoded (HiCC8lYwRBgWJ0ATRYOV2rtc1ND2) sempre tenha acesso
