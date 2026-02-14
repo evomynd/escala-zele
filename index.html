@@ -89,6 +89,7 @@
                     console.log('🆔 UID:', user.uid);
                     
                     // Mostrar mensagem de sucesso
+                    // TODO: Replace with toast/snackbar for better UX in production
                     alert(`Bem-vindo, ${user.displayName}!`);
                     
                     // O onAuthStateChanged vai detectar automaticamente
@@ -124,6 +125,8 @@
                         break;
                 }
                 
+                // TODO: Replace alert with toast/snackbar for better UX in production
+                // Technical details should only be shown in development/debug mode
                 alert(mensagemErro + '\n\nDetalhes técnicos: ' + error.message);
             });
     </script>
