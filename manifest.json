@@ -1,0 +1,36 @@
+{
+  "name": "Zele Server",
+  "short_name": "Zele Server",
+  "description": "Servir é a linguagem do céu",
+  "start_url": "/zele/",
+  "scope": "/zele/",
+  "display": "standalone",
+  "background_color": "#cdc8c0",
+  "theme_color": "#151b29",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "https://github.com/escalaserver/zele/blob/main/Volunteers%20logo.png?raw=true",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://github.com/escalaserver/zele/blob/main/Volunteers%20logo.png?raw=true",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "utilities"],
+  "screenshots": [],
+  "share_target": {
+    "action": "/zele/",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
+}
