@@ -6882,7 +6882,7 @@
                     }
                     
                     // Gerar ID único para o voluntário usando Firestore auto-generated ID
-                    const { collection, doc: docFunction, setDoc } = window.firestoreMethods;
+                    const { doc: docFunction } = window.firestoreMethods;
                     const newVolunteerRef = docFunction(collection(window.firebaseDb, 'users'));
                     const volunteerId = newVolunteerRef.id;
                     
