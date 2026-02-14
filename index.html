@@ -1845,14 +1845,20 @@
             </div>
             
             <div class="mb-4">
-                <label class="block text-left text-sm font-semibold mb-2" style="color: #151b29;">Email *</label>
-                <input type="email" id="new-volunteer-email" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Ex: joao@email.com">
-                <p class="text-xs text-gray-500 mt-1">O voluntário receberá um convite para acessar o sistema.</p>
+                <label class="block text-left text-sm font-semibold mb-2" style="color: #151b29;">
+                    Email 
+                    <span style="color: #999; font-size: 0.9em;">(opcional)</span>
+                </label>
+                <input type="email" id="new-volunteer-email" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Deixe vazio se o voluntário não for acessar o app">
+                <p class="text-xs text-gray-500 mt-1">
+                    💡 Se não informar email, você gerenciará a escala deste voluntário manualmente
+                </p>
             </div>
             
             <div class="bg-blue-50 p-3 rounded-lg mb-4 border-l-4 border-blue-500">
                 <p class="text-xs text-blue-900">
-                    <strong>Status:</strong> Este voluntário será marcado como "pré-cadastrado" até que faça o primeiro login.
+                    <strong>📋 Status:</strong> Voluntários com email serão marcados como "pré-cadastrado" até que façam o primeiro login. 
+                    Voluntários sem email só poderão ser escalados manualmente pelo administrador.
                 </p>
             </div>
             
@@ -7113,29 +7119,43 @@
                     const name = nameInput.value.trim();
                     const email = emailInput.value.trim().toLowerCase();
                     
-                    // Validar campos obrigatórios
+                    // Validar campos obrigatórios - apenas nome é obrigatório
                     if (!name) {
                         showModal('❌ Por favor, informe o nome do voluntário');
                         nameInput.focus();
                         return;
                     }
                     
-                    if (!email) {
-                        showModal('❌ Por favor, informe o email do voluntário');
-                        emailInput.focus();
-                        return;
+                    // Se email foi fornecido, validar formato
+                    if (email && email !== '') {
+                        // Validar formato de email
+                        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                        if (!emailRegex.test(email)) {
+                            showModal('❌ Email inválido. Por favor, corrija ou deixe em branco.');
+                            emailInput.focus();
+                            return;
+                        }
                     }
                     
-                    // Validar formato de email
-                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                    if (!emailRegex.test(email)) {
-                        showModal('❌ Por favor, informe um email válido');
-                        emailInput.focus();
-                        return;
+                    console.log('💾 Salvando novo voluntário...');
+                    
+                    const { collection, getDocs, doc, setDoc } = window.firestoreMethods;
+                    
+                    // Se email não foi fornecido, gerar email fictício
+                    let finalEmail = email;
+                    if (!email || email === '') {
+                        // Criar email fictício baseado no nome
+                        const namePart = name.toLowerCase()
+                            .normalize('NFD')
+                            .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+                            .replace(/\s+/g, '-') // Substitui espaços por hífens
+                            .replace(/[^a-z0-9-]/g, ''); // Remove caracteres especiais
+                        
+                        finalEmail = `${namePart}@sem-email.local`;
+                        console.log('📧 Email não fornecido, usando fictício:', finalEmail);
                     }
                     
                     // Verificar se email já existe (buscar todos os usuários e comparar case-insensitive)
-                    const { collection, getDocs, doc, setDoc } = window.firestoreMethods;
                     const usersRef = collection(window.firebaseDb, 'users');
                     const allUsersSnapshot = await getDocs(usersRef);
                     
@@ -7143,7 +7163,7 @@
                     let emailExists = false;
                     allUsersSnapshot.forEach((doc) => {
                         const userData = doc.data();
-                        if (userData.email && userData.email.toLowerCase() === email) {
+                        if (userData.email && userData.email.toLowerCase() === finalEmail) {
                             emailExists = true;
                         }
                     });
@@ -7153,8 +7173,6 @@
                         emailInput.focus();
                         return;
                     }
-                    
-                    console.log('💾 Salvando novo voluntário...');
                     
                     // Verificar se currentUser está disponível
                     if (!currentUser || !currentUser.uid) {
@@ -7169,17 +7187,19 @@
                     // Criar documento do voluntário
                     const volunteerData = {
                         displayName: name,
-                        email: email,
+                        email: finalEmail,
                         role: 'volunteer',
                         status: 'pre_registered', // Status especial para voluntários pré-cadastrados
+                        hasEmailAccess: email && email !== '' ? true : false, // Flag para saber se tem email real
+                        isManuallyCreated: true, // Flag para identificar cadastro manual
                         createdAt: new Date().toISOString(),
                         createdBy: currentUser.uid,
                         createdByEmail: currentUser.email,
                         createdByName: currentUser.displayName
                     };
                     
-                    // Salvar no Firestore
-                    await setDoc(docFunction(window.firebaseDb, 'users', volunteerId), volunteerData);
+                    // Salvar no Firestore - FIX: usar 'doc' em vez de 'docFunction'
+                    await setDoc(doc(window.firebaseDb, 'users', volunteerId), volunteerData);
                     
                     console.log('✅ Novo voluntário salvo com sucesso!');
                     
