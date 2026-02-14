@@ -5,7 +5,6 @@ const CACHE_NAME = 'zele-server-v2.3.0';
 const urlsToCache = [
   '/',
   '/index.html',
-  '/zele-church-escalas.html',
   'https://cdn.tailwindcss.com',
   'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js',
   'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js',
