@@ -3906,7 +3906,7 @@
                 console.log('🔍 UID do usuário:', user.uid);
                 
                 try {
-                    const { doc, getDoc, setDoc } = window.firestoreMethods;
+                    const { setDoc } = window.firestoreMethods;
                     const userDoc = await getDoc(doc(window.firebaseDb, 'users', user.uid));
                     
                     console.log('📄 Documento existe?', userDoc.exists());
