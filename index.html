@@ -10550,9 +10550,10 @@
                     setupInstallButton();
                     
                     // 4. Verificar onboarding (pode ser feito depois)
-                    setTimeout(async () => {
-                        await checkOnboarding(user);
-                    }, 500);
+                    // DISABLED: Modal de onboarding removido
+                    // setTimeout(async () => {
+                    //     await checkOnboarding(user);
+                    // }, 500);
                     
                     // 5. Verificar check-in de voluntários (para líderes)
                     setTimeout(async () => {
