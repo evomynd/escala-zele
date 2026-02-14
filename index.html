@@ -118,9 +118,6 @@
                         setTimeout(() => successDiv.remove(), 300);
                     }, 3000);
                     
-                    // Alert também
-                    alert(`✅ Login bem-sucedido!\n\nBem-vindo, ${result.user.displayName}!`);
-                    
                 } else if (result && !result.user) {
                     console.log('⚠️ Redirect result existe mas sem usuário:', result);
                     
@@ -376,7 +373,7 @@
             
             <!-- Botão de Diagnóstico (Temporário para Debug) -->
             <button onclick="diagnosticarFirebase()" style="margin-top: 10px; padding: 10px; background: #f39c12; color: white; border: none; border-radius: 5px; cursor: pointer; width: 100%;">
-                🔬 Diagnosticar Problemas
+                🔬 Diagnóstico
             </button>
             
             <!-- Link para login com email -->
@@ -3921,7 +3918,7 @@
                 
                 // Configurações adicionais para melhor compatibilidade
                 window.firebaseProvider.setCustomParameters({
-                    prompt: 'select_account' // Sempre mostrar seleção de conta
+                    prompt: 'select_account' // Always show account selection
                 });
                 
                 try {
@@ -3935,8 +3932,7 @@
                     console.log('📧 Email:', result.user.email);
                     console.log('🆔 UID:', result.user.uid);
                     
-                    alert(`Bem-vindo, ${result.user.displayName}!`);
-                    
+                    // onAuthStateChanged will handle showing the app
                     return result;
                     
                 } catch (popupError) {
@@ -4022,7 +4018,7 @@
             // FUNÇÃO DE DIAGNÓSTICO DO FIREBASE (TEMPORÁRIA PARA DEBUG)
             // ═══════════════════════════════════════════════════════════════════
             function diagnosticarFirebase() {
-                console.clear();
+                console.clear(); // Clear console for clean diagnostic output
                 console.log('═══════════════════════════════════════════');
                 console.log('🔬 DIAGNÓSTICO COMPLETO DO FIREBASE');
                 console.log('═══════════════════════════════════════════');
