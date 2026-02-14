@@ -70,65 +70,117 @@
         window.firebaseReady = true;
         
         // ═══════════════════════════════════════════════════════════════════
-        // CAPTURAR RESULTADO DO REDIRECT DE LOGIN DO GOOGLE
-        // Este código DEVE rodar imediatamente na inicialização
+        // CAPTURA DE REDIRECT RESULT - VERSÃO APRIMORADA
         // ═══════════════════════════════════════════════════════════════════
         
         console.log('🔍 Verificando redirect result...');
+        console.log('📍 URL atual:', window.location.href);
+        console.log('🌐 Hostname:', window.location.hostname);
+        console.log('📁 Pathname:', window.location.pathname);
         
         getRedirectResult(auth)
             .then((result) => {
-                if (result) {
-                    // Usuário fez login via redirect
-                    const user = result.user;
-                    const credential = result.credential;
+                if (result && result.user) {
+                    // ✅ REDIRECT FOI CAPTURADO!
+                    console.log('✅✅✅ REDIRECT RESULT CAPTURADO! ✅✅✅');
+                    console.log('👤 Usuário:', result.user.displayName);
+                    console.log('📧 Email:', result.user.email);
+                    console.log('🆔 UID:', result.user.uid);
+                    console.log('🔑 Provider:', result.credential?.providerId);
                     
-                    console.log('✅ Login do Google bem-sucedido via redirect!');
-                    console.log('👤 Usuário:', user.displayName);
-                    console.log('📧 Email:', user.email);
-                    console.log('🆔 UID:', user.uid);
+                    // Mostrar indicador visual na tela
+                    const successDiv = document.createElement('div');
+                    successDiv.style.cssText = `
+                        position: fixed;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%);
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white;
+                        padding: 30px 50px;
+                        border-radius: 15px;
+                        z-index: 999999;
+                        font-size: 18px;
+                        text-align: center;
+                        box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+                        animation: fadeIn 0.3s ease-in;
+                    `;
+                    successDiv.innerHTML = `
+                        <div style="font-size: 48px; margin-bottom: 15px;">✅</div>
+                        <div style="font-weight: bold; margin-bottom: 10px;">Login Bem-Sucedido!</div>
+                        <div>Bem-vindo, ${result.user.displayName}!</div>
+                    `;
+                    document.body.appendChild(successDiv);
                     
-                    // Mostrar mensagem de sucesso
-                    // TODO: Replace with toast/snackbar for better UX in production
-                    alert(`Bem-vindo, ${user.displayName}!`);
+                    // Remover após 3 segundos
+                    setTimeout(() => {
+                        successDiv.style.animation = 'fadeOut 0.3s ease-out';
+                        setTimeout(() => successDiv.remove(), 300);
+                    }, 3000);
                     
-                    // O onAuthStateChanged vai detectar automaticamente
-                    // e fazer o processamento necessário
+                } else if (result && !result.user) {
+                    console.log('⚠️ Redirect result existe mas sem usuário:', result);
+                    
                 } else {
                     console.log('ℹ️ Nenhum redirect result pendente');
+                    console.log('💡 Isso é normal se:');
+                    console.log('   - Você não acabou de fazer login com Google');
+                    console.log('   - Você fez login via popup (não redirect)');
+                    console.log('   - É o primeiro carregamento da página');
                 }
             })
             .catch((error) => {
-                console.error('❌ Erro ao processar redirect result:', error);
-                console.error('Código do erro:', error.code);
+                console.error('❌❌❌ ERRO AO PROCESSAR REDIRECT! ❌❌❌');
+                console.error('Código:', error.code);
                 console.error('Mensagem:', error.message);
+                console.error('Stack:', error.stack);
                 
-                // Tratamento de erros específicos
-                let mensagemErro = 'Erro ao fazer login com Google.';
+                // Diagnóstico detalhado
+                console.group('🔬 DIAGNÓSTICO DO ERRO');
+                console.log('URL atual:', window.location.href);
+                console.log('Hostname:', window.location.hostname);
+                console.log('Protocol:', window.location.protocol);
+                console.log('User Agent:', navigator.userAgent);
+                console.log('Cookies habilitados:', navigator.cookieEnabled);
+                console.groupEnd();
                 
-                switch(error.code) {
-                    case 'auth/account-exists-with-different-credential':
-                        mensagemErro = 'Esta conta já existe com outro método de login. Use o método original.';
-                        break;
-                    case 'auth/popup-blocked':
-                        mensagemErro = 'Popup foi bloqueado pelo navegador.';
-                        break;
-                    case 'auth/popup-closed-by-user':
-                        mensagemErro = 'Você fechou a janela de login.';
-                        break;
-                    case 'auth/unauthorized-domain':
-                        mensagemErro = 'Este domínio não está autorizado. Entre em contato com o administrador.';
-                        console.error('⚠️ AÇÃO NECESSÁRIA: Adicione este domínio aos domínios autorizados no Firebase Console!');
-                        break;
-                    case 'auth/operation-not-allowed':
-                        mensagemErro = 'Login com Google não está habilitado. Entre em contato com o administrador.';
-                        break;
+                if (error.code === 'auth/unauthorized-domain') {
+                    console.error('');
+                    console.error('🚨 DOMÍNIO NÃO AUTORIZADO! 🚨');
+                    console.error('');
+                    console.error('AÇÃO NECESSÁRIA:');
+                    console.error('1. Acesse: https://console.firebase.google.com/project/zele-teste/authentication/settings');
+                    console.error('2. Clique em "Authorized domains"');
+                    console.error('3. Adicione o domínio: ' + window.location.hostname);
+                    console.error('');
+                    
+                    alert(
+                        '🚨 ERRO DE CONFIGURAÇÃO!\n\n' +
+                        'O domínio "' + window.location.hostname + '" não está autorizado.\n\n' +
+                        'SOLUÇÃO:\n' +
+                        '1. Acesse o Firebase Console\n' +
+                        '2. Authentication → Settings → Authorized domains\n' +
+                        '3. Adicione: ' + window.location.hostname + '\n\n' +
+                        'Verifique o console para mais detalhes.'
+                    );
+                } else {
+                    alert('❌ Erro ao processar login:\n\n' + error.message + '\n\nVerifique o console para detalhes.');
                 }
-                
-                // TODO: Replace alert with toast/snackbar for better UX in production
-                // Technical details should only be shown in development/debug mode
-                alert(mensagemErro + '\n\nDetalhes técnicos: ' + error.message);
             });
+        
+        // Adicionar CSS para animações
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translate(-50%, -60%); }
+                to { opacity: 1; transform: translate(-50%, -50%); }
+            }
+            @keyframes fadeOut {
+                from { opacity: 1; }
+                to { opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
     </script>
     
     <!-- TODO: Migrar para Tailwind CLI ou PostCSS para produção -->
@@ -317,6 +369,11 @@
             <button id="google-login-btn" class="w-full zele-btn text-white font-bold py-3 px-6 rounded-lg flex items-center justify-center gap-3">
                 <svg class="w-6 h-6" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
                 Entrar com Google
+            </button>
+            
+            <!-- Botão de Diagnóstico (Temporário para Debug) -->
+            <button onclick="diagnosticarFirebase()" style="margin-top: 10px; padding: 10px; background: #f39c12; color: white; border: none; border-radius: 5px; cursor: pointer; width: 100%;">
+                🔬 Diagnóstico
             </button>
             
             <!-- Link para login com email -->
@@ -3849,31 +3906,187 @@
                 });
             }
 
-            // Login com Google
+            // ═══════════════════════════════════════════════════════════════════
+            // FUNÇÃO DE LOGIN COM GOOGLE - SISTEMA HÍBRIDO POPUP + REDIRECT
+            // ═══════════════════════════════════════════════════════════════════
             async function loginWithGoogle() {
+                console.log('🔐 Iniciando login com Google...');
+                
+                // Adicionar escopos necessários
+                window.firebaseProvider.addScope('profile');
+                window.firebaseProvider.addScope('email');
+                
+                // Configurações adicionais para melhor compatibilidade
+                window.firebaseProvider.setCustomParameters({
+                    prompt: 'select_account' // Always show account selection
+                });
+                
                 try {
-                    showLoading(); // Mostrar loading durante o login
-                    console.log('🔐 Iniciando login com Google via redirect...');
-                    console.log('Auth:', window.firebaseAuth);
-                    console.log('Provider:', window.firebaseProvider);
+                    console.log('🪟 Tentando login via POPUP...');
                     
-                    // Adicionar escopos necessários (opcional)
-                    window.firebaseProvider.addScope('profile');
-                    window.firebaseProvider.addScope('email');
+                    // PRIMEIRA TENTATIVA: POPUP (mais confiável)
+                    const result = await window.firebaseAuthMethods.signInWithPopup(window.firebaseAuth, window.firebaseProvider);
                     
-                    // Usar signInWithRedirect ao invés de signInWithPopup
-                    await window.firebaseAuthMethods.signInWithRedirect(window.firebaseAuth, window.firebaseProvider);
+                    console.log('✅ Login com POPUP bem-sucedido!');
+                    console.log('👤 Usuário:', result.user.displayName);
+                    console.log('📧 Email:', result.user.email);
+                    console.log('🆔 UID:', result.user.uid);
                     
-                    console.log('🔄 Redirecionando para Google...');
-                    // Após esta linha, o usuário será redirecionado
-                    // O resultado será capturado pelo getRedirectResult() quando voltar
-                } catch (error) {
-                    console.error('❌ Erro ao iniciar redirect:', error);
-                    console.error('Código do erro:', error.code);
-                    console.error('Mensagem:', error.message);
-                    showLogin(); // Voltar para login em caso de erro
-                    alert('Erro ao tentar fazer login. Por favor, tente novamente.');
+                    // onAuthStateChanged will handle showing the app
+                    return result;
+                    
+                } catch (popupError) {
+                    console.warn('⚠️ Popup falhou, tentando REDIRECT...');
+                    console.warn('Motivo do erro do popup:', popupError.code, popupError.message);
+                    
+                    // Verificar se é erro de popup bloqueado ou COOP
+                    if (
+                        popupError.code === 'auth/popup-blocked' ||
+                        popupError.code === 'auth/popup-closed-by-user' ||
+                        popupError.message.includes('Cross-Origin-Opener-Policy') ||
+                        popupError.message.includes('window.closed')
+                    ) {
+                        console.log('🔄 Mudando para método REDIRECT...');
+                        
+                        try {
+                            showLoading(); // Mostrar loading durante o redirect
+                            // SEGUNDA TENTATIVA: REDIRECT (fallback)
+                            await window.firebaseAuthMethods.signInWithRedirect(window.firebaseAuth, window.firebaseProvider);
+                            console.log('🔄 Redirecionando para Google...');
+                            // Página será recarregada, resultado capturado no getRedirectResult
+                            
+                        } catch (redirectError) {
+                            console.error('❌ REDIRECT também falhou:', redirectError);
+                            
+                            // Verificar se é problema de domínio não autorizado
+                            if (redirectError.code === 'auth/unauthorized-domain') {
+                                alert(
+                                    '⚠️ ERRO DE CONFIGURAÇÃO!\n\n' +
+                                    'Este domínio não está autorizado no Firebase.\n\n' +
+                                    'SOLUÇÃO:\n' +
+                                    '1. Acesse: https://console.firebase.google.com/project/zele-teste/authentication/settings\n' +
+                                    '2. Vá em "Authorized domains"\n' +
+                                    '3. Adicione o domínio: ' + window.location.hostname + '\n\n' +
+                                    'Entre em contato com o administrador.'
+                                );
+                            } else {
+                                alert(
+                                    '❌ Erro ao fazer login com Google.\n\n' +
+                                    'Detalhes: ' + redirectError.message + '\n\n' +
+                                    'Por favor, tente:\n' +
+                                    '1. Desabilitar bloqueadores de popup\n' +
+                                    '2. Permitir cookies de terceiros\n' +
+                                    '3. Usar outro navegador\n' +
+                                    '4. Fazer login por email e senha'
+                                );
+                            }
+                            
+                            showLogin(); // Voltar para login em caso de erro
+                            throw redirectError;
+                        }
+                        
+                    } else {
+                        // Outro tipo de erro
+                        console.error('❌ Erro não tratado:', popupError);
+                        
+                        let mensagemErro = 'Erro ao fazer login com Google.';
+                        
+                        switch(popupError.code) {
+                            case 'auth/account-exists-with-different-credential':
+                                mensagemErro = 'Esta conta já existe com outro método de login.\nUse o método original.';
+                                break;
+                            case 'auth/cancelled-popup-request':
+                                mensagemErro = 'Requisição cancelada. Tente novamente.';
+                                break;
+                            case 'auth/operation-not-allowed':
+                                mensagemErro = 'Login com Google não está habilitado.\nEntre em contato com o administrador.';
+                                break;
+                            case 'auth/unauthorized-domain':
+                                mensagemErro = 'Este domínio não está autorizado.\nEntre em contato com o administrador.\n\nDomínio atual: ' + window.location.hostname;
+                                break;
+                            default:
+                                mensagemErro = popupError.message;
+                        }
+                        
+                        alert('❌ ' + mensagemErro);
+                        throw popupError;
+                    }
                 }
+            }
+
+            // ═══════════════════════════════════════════════════════════════════
+            // FUNÇÃO DE DIAGNÓSTICO DO FIREBASE (TEMPORÁRIA PARA DEBUG)
+            // ═══════════════════════════════════════════════════════════════════
+            function diagnosticarFirebase() {
+                console.clear(); // Clear console for clean diagnostic output
+                console.log('═══════════════════════════════════════════');
+                console.log('🔬 DIAGNÓSTICO COMPLETO DO FIREBASE');
+                console.log('═══════════════════════════════════════════');
+                console.log('');
+                
+                // Informações do ambiente
+                console.group('🌐 AMBIENTE');
+                console.log('URL:', window.location.href);
+                console.log('Hostname:', window.location.hostname);
+                console.log('Protocol:', window.location.protocol);
+                console.log('Port:', window.location.port || 'padrão');
+                console.log('Pathname:', window.location.pathname);
+                console.groupEnd();
+                console.log('');
+                
+                // Informações do navegador
+                console.group('🖥️ NAVEGADOR');
+                console.log('User Agent:', navigator.userAgent);
+                console.log('Cookies habilitados:', navigator.cookieEnabled);
+                console.log('Online:', navigator.onLine);
+                console.log('Idioma:', navigator.language);
+                console.groupEnd();
+                console.log('');
+                
+                // Configuração do Firebase
+                console.group('🔥 FIREBASE CONFIG');
+                const auth = window.firebaseAuth;
+                if (auth && auth.app && auth.app.options) {
+                    const config = auth.app.options;
+                    console.log('Project ID:', config.projectId);
+                    console.log('Auth Domain:', config.authDomain);
+                    console.log('API Key:', config.apiKey ? '✅ Configurado' : '❌ Não configurado');
+                } else {
+                    console.log('❌ Firebase não inicializado corretamente');
+                }
+                console.groupEnd();
+                console.log('');
+                
+                // Estado de autenticação
+                console.group('🔐 AUTENTICAÇÃO');
+                const currentUser = window.firebaseAuth?.currentUser;
+                if (currentUser) {
+                    console.log('Status: ✅ LOGADO');
+                    console.log('Usuário:', currentUser.displayName);
+                    console.log('Email:', currentUser.email);
+                } else {
+                    console.log('Status: ❌ DESLOGADO');
+                }
+                console.groupEnd();
+                console.log('');
+                
+                // Verificar domínios autorizados
+                console.group('🌍 VERIFICAÇÃO DE DOMÍNIOS');
+                console.log('Domínio atual:', window.location.hostname);
+                console.log('');
+                console.log('✅ Domínios que DEVEM estar autorizados no Firebase:');
+                console.log('   - localhost');
+                console.log('   - ' + window.location.hostname);
+                console.log('');
+                console.log('📋 Para verificar/adicionar:');
+                const projectId = window.firebaseAuth?.app?.options?.projectId || 'zele-teste';
+                console.log('   https://console.firebase.google.com/project/' + projectId + '/authentication/settings');
+                console.groupEnd();
+                console.log('');
+                
+                console.log('═══════════════════════════════════════════');
+                
+                alert('✅ Diagnóstico completo!\n\nVerifique o console para detalhes.');
             }
 
             // Logout
@@ -10844,15 +11057,28 @@
 
             // Monitorar autenticação
             window.firebaseAuthMethods.onAuthStateChanged(window.firebaseAuth, async (user) => {
+                console.log('═══════════════════════════════════════════');
+                console.log('🔄 onAuthStateChanged DISPARADO');
+                console.log('═══════════════════════════════════════════');
+                
                 if (user) {
-                    console.log('✅ Estado de auth mudou: LOGADO');
-                    console.log('👤 Usuário:', user.displayName);
+                    console.log('✅ Estado: LOGADO');
+                    console.log('👤 Nome:', user.displayName);
                     console.log('📧 Email:', user.email);
                     console.log('🆔 UID:', user.uid);
-                    console.log('🔐 Provider:', user.providerData[0]?.providerId);
+                    console.log('📱 Telefone:', user.phoneNumber || 'Não informado');
+                    console.log('📸 Foto:', user.photoURL || 'Sem foto');
+                    console.log('✅ Email verificado:', user.emailVerified);
+                    console.log('🔐 Provider:', user.providerData.map(p => p.providerId).join(', '));
+                    console.log('📅 Criado em:', new Date(user.metadata.creationTime).toLocaleString('pt-BR'));
+                    console.log('🕒 Último login:', new Date(user.metadata.lastSignInTime).toLocaleString('pt-BR'));
                 } else {
-                    console.log('🔄 Estado de auth mudou: DESLOGADO');
+                    console.log('❌ Estado: DESLOGADO');
+                    console.log('💡 Usuário precisa fazer login');
                 }
+                
+                console.log('═══════════════════════════════════════════');
+                
                 currentUser = user;
 
                 if (user) {
