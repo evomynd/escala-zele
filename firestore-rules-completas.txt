@@ -1,0 +1,161 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Regra para coleção 'users'
+    match /users/{userId} {
+      // Qualquer usuário autenticado pode ler qualquer documento de usuário
+      allow read: if request.auth != null;
+      
+      // Usuário pode criar seu próprio documento
+      allow create: if request.auth != null && request.auth.uid == userId;
+      
+      // Usuário pode atualizar seu próprio documento OU admin/superadmin pode atualizar qualquer usuário
+      allow update: if request.auth != null && (
+                       request.auth.uid == userId ||
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'] ||
+                       request.auth.uid == 'HiCC8lYwRBgWJ0ATRYOV2rtc1ND2'
+                    );
+      
+      // Apenas super admins podem deletar
+      allow delete: if request.auth != null && 
+                       (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin' ||
+                        request.auth.uid == 'HiCC8lYwRBgWJ0ATRYOV2rtc1ND2');
+    }
+    
+    // Regra para coleção 'config' (datas disponíveis e outras configurações)
+    match /config/{docId} {
+      // Qualquer usuário autenticado pode ler
+      allow read: if request.auth != null;
+      
+      // Apenas admins e super admins podem criar/atualizar/deletar
+      allow write: if request.auth != null && 
+                      (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'] ||
+                       request.auth.uid == 'HiCC8lYwRBgWJ0ATRYOV2rtc1ND2');
+    }
+    
+    // Regra para coleção 'available_dates'
+    match /available_dates/{dateId} {
+      // Qualquer usuário autenticado pode ler
+      allow read: if request.auth != null;
+      
+      // Apenas admins e super admins podem criar/atualizar/deletar
+      allow write: if request.auth != null && 
+                      (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'] ||
+                       request.auth.uid == 'HiCC8lYwRBgWJ0ATRYOV2rtc1ND2');
+    }
+    
+    // Regra para coleção 'escalas'
+    match /escalas/{escalaId} {
+      // Qualquer usuário autenticado pode ler
+      allow read: if request.auth != null;
+      
+      // Usuário pode criar escala com seu próprio userId OU admin/superadmin podem criar para qualquer um
+      allow create: if request.auth != null && (
+                       request.resource.data.userId == request.auth.uid ||
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'] ||
+                       request.auth.uid == 'HiCC8lYwRBgWJ0ATRYOV2rtc1ND2'
+                    );
+      
+      // Atualizar permitido ao dono, admins/superadmins ou líder do time da escala
+      allow update: if request.auth != null && 
+                       (resource.data.userId == request.auth.uid ||
+                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'] ||
+                        request.auth.uid == 'HiCC8lYwRBgWJ0ATRYOV2rtc1ND2' ||
+                        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                         resource.data.team in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.teamLeader));
+      
+      // Deletar: só o dono antes de 48h do evento, ou admin/superadmin a qualquer momento
+      allow delete: if request.auth != null && (
+                      // Admin/superadmin pode deletar sempre
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'] ||
+                      request.auth.uid == 'HiCC8lYwRBgWJ0ATRYOV2rtc1ND2' ||
+                      // Dono pode deletar se houver eventTimestamp e faltar >48h
+                      (
+                        resource.data.userId == request.auth.uid &&
+                        resource.data.eventTimestamp is timestamp &&
+                        request.time <= resource.data.eventTimestamp - duration.value(48, 'h')
+                      )
+                    );
+    }
+    
+    // Regra para coleção 'blockedAttempts' (tentativas de deleção bloqueadas)
+    match /blockedAttempts/{attemptId} {
+      // Admins e super admins podem ler (incluindo listeners em tempo real)
+      allow read: if request.auth != null && 
+                     (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'] ||
+                      request.auth.uid == 'HiCC8lYwRBgWJ0ATRYOV2rtc1ND2');
+      
+      // Qualquer usuário autenticado pode criar (quando tenta deletar e é bloqueado)
+      allow create: if request.auth != null;
+      
+      // Apenas admins e super admins podem atualizar/deletar
+      allow update, delete: if request.auth != null && 
+                               (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'] ||
+                                request.auth.uid == 'HiCC8lYwRBgWJ0ATRYOV2rtc1ND2');
+    }
+    
+    // Regra para coleção 'escalas_backups' (backups de escalas deletadas)
+    match /escalas_backups/{backupId} {
+      // Apenas admins e super admins podem ler
+      allow read: if request.auth != null && 
+                     (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'] ||
+                      request.auth.uid == 'HiCC8lYwRBgWJ0ATRYOV2rtc1ND2');
+      
+      // Apenas sistema pode criar backups (validação no backend)
+      allow create: if request.auth != null && 
+                       (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'] ||
+                        request.auth.uid == 'HiCC8lYwRBgWJ0ATRYOV2rtc1ND2');
+      
+      // Não permitir atualizar backups (são imutáveis)
+      allow update: if false;
+      
+      // Apenas super admins podem deletar backups
+      allow delete: if request.auth != null && 
+                       (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin' ||
+                        request.auth.uid == 'HiCC8lYwRBgWJ0ATRYOV2rtc1ND2');
+    }
+    
+    // Regra para coleção 'audit_logs' (logs de auditoria)
+    match /audit_logs/{logId} {
+      // Apenas super admins podem ler
+      allow read: if request.auth != null && 
+                     (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin' ||
+                      request.auth.uid == 'HiCC8lYwRBgWJ0ATRYOV2rtc1ND2');
+      
+      // Sistema pode criar logs (qualquer usuário autenticado pode criar - logs automáticos)
+      allow create: if request.auth != null;
+      
+      // Logs são imutáveis - ninguém pode atualizar ou deletar
+      allow update, delete: if false;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// INSTRUÇÕES PARA APLICAR AS REGRAS:
+// ═══════════════════════════════════════════════════════════════════
+// 
+// 1. Acesse o Firebase Console:
+//    https://console.firebase.google.com/project/z-ele-church-escalas/firestore/rules
+//
+// 2. SUBSTITUA COMPLETAMENTE as regras atuais pelo conteúdo acima
+//    (copie desde "rules_version = '2';" até o final do último "}")
+//
+// 3. Clique no botão "Publicar" para aplicar as alterações
+//
+// 4. Aguarde alguns segundos e recarregue a página do app
+//
+// ═══════════════════════════════════════════════════════════════════
+// IMPORTANTE: Estas regras permitem que:
+// ═══════════════════════════════════════════════════════════════════
+//
+// ✅ Qualquer usuário autenticado possa ler users, available_dates e escalas
+// ✅ Usuários possam criar/atualizar apenas seus próprios dados
+// ✅ Admins possam gerenciar datas e escalas
+// ✅ Super admins tenham acesso total
+// ✅ O super admin hardcoded (HiCC8lYwRBgWJ0ATRYOV2rtc1ND2) sempre tenha acesso
+// ✅ Logs de auditoria sejam imutáveis e visíveis apenas para super admins
+// ✅ Backups de escalas sejam criados automaticamente e restauráveis por admins
+//
+// ═══════════════════════════════════════════════════════════════════
