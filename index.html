@@ -6875,9 +6875,15 @@
                     
                     console.log('💾 Salvando novo voluntário...');
                     
+                    // Verificar se currentUser está disponível
+                    if (!currentUser || !currentUser.uid) {
+                        showModal('❌ Erro: sessão de usuário não encontrada. Por favor, faça login novamente.');
+                        return;
+                    }
+                    
                     // Gerar ID único para o voluntário usando Firestore auto-generated ID
-                    const { collection, doc: docRef } = window.firestoreMethods;
-                    const newVolunteerRef = docRef(collection(window.firebaseDb, 'users'));
+                    const { collection, doc: docFunction, setDoc } = window.firestoreMethods;
+                    const newVolunteerRef = docFunction(collection(window.firebaseDb, 'users'));
                     const volunteerId = newVolunteerRef.id;
                     
                     // Criar documento do voluntário
@@ -6893,7 +6899,7 @@
                     };
                     
                     // Salvar no Firestore
-                    await setDoc(docRef(window.firebaseDb, 'users', volunteerId), volunteerData);
+                    await setDoc(docFunction(window.firebaseDb, 'users', volunteerId), volunteerData);
                     
                     console.log('✅ Novo voluntário salvo com sucesso!');
                     
