@@ -70,8 +70,8 @@
         window.firebaseReady = true;
     </script>
     
-    <!-- Tailwind CDN: Para produção, considere instalar via npm e usar build process -->
-    <!-- Veja: https://tailwindcss.com/docs/installation -->
+    <!-- TODO: Migrar para Tailwind CLI ou PostCSS para produção -->
+    <!-- Aviso: cdn.tailwindcss.com não deve ser usado em produção -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -6854,7 +6854,7 @@
                     }
                     
                     // Verificar se email já existe (buscar todos os usuários e comparar case-insensitive)
-                    const { collection, getDocs, doc: docRef, setDoc } = window.firestoreMethods;
+                    const { collection, getDocs, doc, setDoc } = window.firestoreMethods;
                     const usersRef = collection(window.firebaseDb, 'users');
                     const allUsersSnapshot = await getDocs(usersRef);
                     
@@ -6882,8 +6882,7 @@
                     }
                     
                     // Gerar ID único para o voluntário usando Firestore auto-generated ID
-                    const { collection, doc: docFunction, setDoc } = window.firestoreMethods;
-                    const newVolunteerRef = docFunction(collection(window.firebaseDb, 'users'));
+                    const newVolunteerRef = doc(collection(window.firebaseDb, 'users'));
                     const volunteerId = newVolunteerRef.id;
                     
                     // Criar documento do voluntário
