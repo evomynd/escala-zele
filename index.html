@@ -69,18 +69,65 @@
         console.log('✅ Firebase inicializado e exportado para window');
         window.firebaseReady = true;
         
-        // Capturar resultado do redirect após login
+        // ═══════════════════════════════════════════════════════════════════
+        // CAPTURAR RESULTADO DO REDIRECT DE LOGIN DO GOOGLE
+        // Este código DEVE rodar imediatamente na inicialização
+        // ═══════════════════════════════════════════════════════════════════
+        
+        console.log('🔍 Verificando redirect result...');
+        
         getRedirectResult(auth)
             .then((result) => {
                 if (result) {
-                    console.log('✅ Login com Google bem-sucedido via redirect');
+                    // Usuário fez login via redirect
                     const user = result.user;
-                    // Processamento do usuário já será feito pelo onAuthStateChanged
+                    const credential = result.credential;
+                    
+                    console.log('✅ Login do Google bem-sucedido via redirect!');
+                    console.log('👤 Usuário:', user.displayName);
+                    console.log('📧 Email:', user.email);
+                    console.log('🆔 UID:', user.uid);
+                    
+                    // Mostrar mensagem de sucesso
+                    // TODO: Replace with toast/snackbar for better UX in production
+                    alert(`Bem-vindo, ${user.displayName}!`);
+                    
+                    // O onAuthStateChanged vai detectar automaticamente
+                    // e fazer o processamento necessário
+                } else {
+                    console.log('ℹ️ Nenhum redirect result pendente');
                 }
             })
             .catch((error) => {
-                console.error('❌ Erro ao processar redirect:', error);
-                alert(`Erro no login: ${error.message}`);
+                console.error('❌ Erro ao processar redirect result:', error);
+                console.error('Código do erro:', error.code);
+                console.error('Mensagem:', error.message);
+                
+                // Tratamento de erros específicos
+                let mensagemErro = 'Erro ao fazer login com Google.';
+                
+                switch(error.code) {
+                    case 'auth/account-exists-with-different-credential':
+                        mensagemErro = 'Esta conta já existe com outro método de login. Use o método original.';
+                        break;
+                    case 'auth/popup-blocked':
+                        mensagemErro = 'Popup foi bloqueado pelo navegador.';
+                        break;
+                    case 'auth/popup-closed-by-user':
+                        mensagemErro = 'Você fechou a janela de login.';
+                        break;
+                    case 'auth/unauthorized-domain':
+                        mensagemErro = 'Este domínio não está autorizado. Entre em contato com o administrador.';
+                        console.error('⚠️ AÇÃO NECESSÁRIA: Adicione este domínio aos domínios autorizados no Firebase Console!');
+                        break;
+                    case 'auth/operation-not-allowed':
+                        mensagemErro = 'Login com Google não está habilitado. Entre em contato com o administrador.';
+                        break;
+                }
+                
+                // TODO: Replace alert with toast/snackbar for better UX in production
+                // Technical details should only be shown in development/debug mode
+                alert(mensagemErro + '\n\nDetalhes técnicos: ' + error.message);
             });
     </script>
     
@@ -3806,15 +3853,22 @@
             async function loginWithGoogle() {
                 try {
                     showLoading(); // Mostrar loading durante o login
-                    console.log('🔐 Iniciando login...');
+                    console.log('🔐 Iniciando login com Google via redirect...');
                     console.log('Auth:', window.firebaseAuth);
                     console.log('Provider:', window.firebaseProvider);
+                    
+                    // Adicionar escopos necessários (opcional)
+                    window.firebaseProvider.addScope('profile');
+                    window.firebaseProvider.addScope('email');
+                    
                     // Usar signInWithRedirect ao invés de signInWithPopup
                     await window.firebaseAuthMethods.signInWithRedirect(window.firebaseAuth, window.firebaseProvider);
-                    // O usuário será redirecionado para o Google
-                    // O resultado será capturado pelo getRedirectResult quando voltar
+                    
+                    console.log('🔄 Redirecionando para Google...');
+                    // Após esta linha, o usuário será redirecionado
+                    // O resultado será capturado pelo getRedirectResult() quando voltar
                 } catch (error) {
-                    console.error('❌ Erro no redirect:', error);
+                    console.error('❌ Erro ao iniciar redirect:', error);
                     console.error('Código do erro:', error.code);
                     console.error('Mensagem:', error.message);
                     showLogin(); // Voltar para login em caso de erro
@@ -10790,7 +10844,15 @@
 
             // Monitorar autenticação
             window.firebaseAuthMethods.onAuthStateChanged(window.firebaseAuth, async (user) => {
-                console.log('🔄 Estado de auth mudou:', user?.email || 'deslogado');
+                if (user) {
+                    console.log('✅ Estado de auth mudou: LOGADO');
+                    console.log('👤 Usuário:', user.displayName);
+                    console.log('📧 Email:', user.email);
+                    console.log('🆔 UID:', user.uid);
+                    console.log('🔐 Provider:', user.providerData[0]?.providerId);
+                } else {
+                    console.log('🔄 Estado de auth mudou: DESLOGADO');
+                }
                 currentUser = user;
 
                 if (user) {
