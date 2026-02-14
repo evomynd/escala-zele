@@ -6853,13 +6853,21 @@
                         return;
                     }
                     
-                    // Verificar se email já existe
-                    const { collection, query, where, getDocs, doc, setDoc } = window.firestoreMethods;
+                    // Verificar se email já existe (buscar todos os usuários e comparar case-insensitive)
+                    const { collection, getDocs, doc: docRef, setDoc } = window.firestoreMethods;
                     const usersRef = collection(window.firebaseDb, 'users');
-                    const q = query(usersRef, where('email', '==', email));
-                    const querySnapshot = await getDocs(q);
+                    const allUsersSnapshot = await getDocs(usersRef);
                     
-                    if (!querySnapshot.empty) {
+                    // Verificar se já existe um email igual (case-insensitive)
+                    let emailExists = false;
+                    allUsersSnapshot.forEach((doc) => {
+                        const userData = doc.data();
+                        if (userData.email && userData.email.toLowerCase() === email) {
+                            emailExists = true;
+                        }
+                    });
+                    
+                    if (emailExists) {
                         showModal('❌ Já existe um voluntário cadastrado com este email');
                         emailInput.focus();
                         return;
@@ -6867,8 +6875,10 @@
                     
                     console.log('💾 Salvando novo voluntário...');
                     
-                    // Gerar ID único para o voluntário
-                    const volunteerId = `precad_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                    // Gerar ID único para o voluntário usando Firestore auto-generated ID
+                    const { collection, doc: docRef } = window.firestoreMethods;
+                    const newVolunteerRef = docRef(collection(window.firebaseDb, 'users'));
+                    const volunteerId = newVolunteerRef.id;
                     
                     // Criar documento do voluntário
                     const volunteerData = {
@@ -6879,12 +6889,11 @@
                         createdAt: new Date().toISOString(),
                         createdBy: currentUser.uid,
                         createdByEmail: currentUser.email,
-                        createdByName: currentUser.displayName,
-                        isPrecadastro: true // Flag para identificar pré-cadastro
+                        createdByName: currentUser.displayName
                     };
                     
                     // Salvar no Firestore
-                    await setDoc(doc(window.firebaseDb, 'users', volunteerId), volunteerData);
+                    await setDoc(docRef(window.firebaseDb, 'users', volunteerId), volunteerData);
                     
                     console.log('✅ Novo voluntário salvo com sucesso!');
                     
