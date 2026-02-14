@@ -30,7 +30,7 @@
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updateProfile } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updateProfile } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
         import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, query, where, getDocs, deleteDoc, orderBy, addDoc, updateDoc, limit, Timestamp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
         import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
         
@@ -62,12 +62,26 @@
         window.firebaseDb = db;
         window.firebaseStorage = storage;
         window.firebaseProvider = provider;
-        window.firebaseAuthMethods = { signInWithPopup, signOut, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updateProfile };
+        window.firebaseAuthMethods = { signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updateProfile };
         window.firestoreMethods = { doc, setDoc, getDoc, onSnapshot, collection, query, where, getDocs, deleteDoc, orderBy, addDoc, updateDoc, limit, Timestamp };
         window.firebaseStorageMethods = { ref, uploadBytes, getDownloadURL };
         
         console.log('✅ Firebase inicializado e exportado para window');
         window.firebaseReady = true;
+        
+        // Capturar resultado do redirect após login
+        getRedirectResult(auth)
+            .then((result) => {
+                if (result) {
+                    console.log('✅ Login com Google bem-sucedido via redirect');
+                    const user = result.user;
+                    // Processamento do usuário já será feito pelo onAuthStateChanged
+                }
+            })
+            .catch((error) => {
+                console.error('❌ Erro ao processar redirect:', error);
+                alert(`Erro no login: ${error.message}`);
+            });
     </script>
     
     <!-- TODO: Migrar para Tailwind CLI ou PostCSS para produção -->
@@ -3795,16 +3809,16 @@
                     console.log('🔐 Iniciando login...');
                     console.log('Auth:', window.firebaseAuth);
                     console.log('Provider:', window.firebaseProvider);
-                    const result = await window.firebaseAuthMethods.signInWithPopup(window.firebaseAuth, window.firebaseProvider);
-                    currentUser = result.user;
-                    console.log('✅ Login bem-sucedido:', currentUser.email);
-                    // O onAuthStateChanged vai cuidar de mostrar o app
+                    // Usar signInWithRedirect ao invés de signInWithPopup
+                    await window.firebaseAuthMethods.signInWithRedirect(window.firebaseAuth, window.firebaseProvider);
+                    // O usuário será redirecionado para o Google
+                    // O resultado será capturado pelo getRedirectResult quando voltar
                 } catch (error) {
-                    console.error('❌ Erro no login:', error);
+                    console.error('❌ Erro no redirect:', error);
                     console.error('Código do erro:', error.code);
                     console.error('Mensagem:', error.message);
                     showLogin(); // Voltar para login em caso de erro
-                    showModal(`Erro ao fazer login: ${error.message}\n\nVerifique:\n1. Autenticação Google habilitada no Firebase\n2. Domínio autorizado no Firebase Console\n3. Conexão com internet`);
+                    alert('Erro ao tentar fazer login. Por favor, tente novamente.');
                 }
             }
 
