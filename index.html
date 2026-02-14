@@ -7145,13 +7145,21 @@
                     let finalEmail = email;
                     if (!email || email === '') {
                         // Criar email fictício baseado no nome
-                        const namePart = name.toLowerCase()
+                        let namePart = name.toLowerCase()
                             .normalize('NFD')
                             .replace(/[\u0300-\u036f]/g, '') // Remove acentos
                             .replace(/\s+/g, '-') // Substitui espaços por hífens
-                            .replace(/[^a-z0-9-]/g, ''); // Remove caracteres especiais
+                            .replace(/[^a-z0-9-]/g, '') // Remove caracteres especiais
+                            .replace(/^-+|-+$/g, ''); // Remove hífens no início e fim
                         
-                        finalEmail = `${namePart}@sem-email.local`;
+                        // Fallback se o nome não produziu caracteres válidos
+                        if (!namePart || namePart === '') {
+                            namePart = 'voluntario';
+                        }
+                        
+                        // Adicionar timestamp para garantir unicidade
+                        const timestamp = Date.now();
+                        finalEmail = `${namePart}-${timestamp}@sem-email.local`;
                         console.log('📧 Email não fornecido, usando fictício:', finalEmail);
                     }
                     
@@ -7190,7 +7198,7 @@
                         email: finalEmail,
                         role: 'volunteer',
                         status: 'pre_registered', // Status especial para voluntários pré-cadastrados
-                        hasEmailAccess: email && email !== '' ? true : false, // Flag para saber se tem email real
+                        hasEmailAccess: !!email, // Flag para saber se tem email real
                         isManuallyCreated: true, // Flag para identificar cadastro manual
                         createdAt: new Date().toISOString(),
                         createdBy: currentUser.uid,
