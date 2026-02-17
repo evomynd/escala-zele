@@ -1984,7 +1984,7 @@
     </div>
 
     <!-- Modal: Selecionar Culto para Download -->
-    <div id="download-schedule-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50" style="display: none;">
+    <div id="download-schedule-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
             <div class="bg-gradient-to-r from-green-600 to-green-800 text-white p-4 flex items-center justify-between">
                 <h2 class="text-lg font-semibold">📥 Selecionar Culto para Download</h2>
@@ -12380,14 +12380,12 @@
         document.getElementById('close-download-schedule-modal')?.addEventListener('click', () => {
             const modal = document.getElementById('download-schedule-modal');
             modal.classList.add('hidden');
-            setTimeout(() => modal.style.display = 'none', 300);
         });
 
         document.getElementById('download-schedule-modal')?.addEventListener('click', (e) => {
             if (e.target.id === 'download-schedule-modal') {
                 const modal = document.getElementById('download-schedule-modal');
                 modal.classList.add('hidden');
-                setTimeout(() => modal.style.display = 'none', 300);
             }
         });
 
@@ -12403,8 +12401,7 @@
             
             listContainer.innerHTML = '<div class="text-center py-8"><p class="text-gray-600">⏳ Buscando cultos...</p></div>';
             
-            modal.style.display = 'flex';
-            setTimeout(() => modal.classList.remove('hidden'), 10);
+            modal.classList.remove('hidden');
 
             // Buscar próximos eventos (próximos 30 dias)
             const today = new Date();
@@ -12582,7 +12579,8 @@
                 const tempDiv = await createScheduleImageHTML(eventData, volunteers);
                 document.body.appendChild(tempDiv);
 
-                // Aguardar um pouco para garantir que as imagens sejam carregadas
+                // Aguardar para garantir que todas as imagens (logo e fotos dos voluntários) sejam carregadas
+                // antes de capturar o screenshot com html2canvas
                 await new Promise(resolve => setTimeout(resolve, 500));
 
                 // Usar html2canvas para converter em imagem
@@ -12631,7 +12629,6 @@
                 // Fechar modal de download
                 const modal = document.getElementById('download-schedule-modal');
                 modal.classList.add('hidden');
-                setTimeout(() => modal.style.display = 'none', 300);
 
             } catch (error) {
                 console.error('❌ Erro ao gerar JPEG:', error);
