@@ -27,6 +27,9 @@
     <!-- Chart.js para Dashboards -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     
+    <!-- html2canvas para geração de imagens -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
@@ -1959,7 +1962,33 @@
                 <div>
                     <h2 class="text-lg font-semibold">Próximos Cultos</h2>
                 </div>
-                <button id="close-leader-services-modal" class="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-2 transition">
+                <div class="flex items-center gap-2">
+                    <button id="download-schedule-btn" class="flex items-center gap-2 bg-white bg-opacity-20 hover:bg-opacity-30 px-4 py-2 rounded-lg transition text-sm font-medium">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                        </svg>
+                        <span>Baixar Escala</span>
+                    </button>
+                    <button id="close-leader-services-modal" class="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-2 transition">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="p-6 overflow-y-auto flex-1">
+                <div id="leader-services-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Selecionar Culto para Download -->
+    <div id="download-schedule-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50" style="display: none;">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+            <div class="bg-gradient-to-r from-green-600 to-green-800 text-white p-4 flex items-center justify-between">
+                <h2 class="text-lg font-semibold">📥 Selecionar Culto para Download</h2>
+                <button id="close-download-schedule-modal" class="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-2 transition">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
@@ -1967,7 +1996,7 @@
             </div>
             
             <div class="p-6 overflow-y-auto flex-1">
-                <div id="leader-services-list"></div>
+                <div id="download-schedule-list"></div>
             </div>
         </div>
     </div>
@@ -12331,6 +12360,348 @@
                 console.error('❌ Erro ao excluir voluntário:', error);
                 showModal('❌ Erro ao excluir voluntário. Tente novamente.');
             }
+        }
+
+        // ========================================
+        // FUNCIONALIDADE DE DOWNLOAD DE ESCALAS EM JPEG
+        // ========================================
+        
+        // Botão de download no modal de próximos cultos
+        document.getElementById('download-schedule-btn')?.addEventListener('click', async () => {
+            try {
+                await openDownloadScheduleModal();
+            } catch (error) {
+                console.error('❌ Erro ao abrir modal de download:', error);
+                showModal('❌ Erro ao carregar cultos. Tente novamente.');
+            }
+        });
+
+        // Event listeners do modal de download
+        document.getElementById('close-download-schedule-modal')?.addEventListener('click', () => {
+            const modal = document.getElementById('download-schedule-modal');
+            modal.classList.add('hidden');
+            setTimeout(() => modal.style.display = 'none', 300);
+        });
+
+        document.getElementById('download-schedule-modal')?.addEventListener('click', (e) => {
+            if (e.target.id === 'download-schedule-modal') {
+                const modal = document.getElementById('download-schedule-modal');
+                modal.classList.add('hidden');
+                setTimeout(() => modal.style.display = 'none', 300);
+            }
+        });
+
+        async function openDownloadScheduleModal() {
+            const leaderTeams = userTeamLeadership || [];
+            if (leaderTeams.length === 0) {
+                showModal('❌ Você não é líder de nenhum time.');
+                return;
+            }
+
+            const modal = document.getElementById('download-schedule-modal');
+            const listContainer = document.getElementById('download-schedule-list');
+            
+            listContainer.innerHTML = '<div class="text-center py-8"><p class="text-gray-600">⏳ Buscando cultos...</p></div>';
+            
+            modal.style.display = 'flex';
+            setTimeout(() => modal.classList.remove('hidden'), 10);
+
+            // Buscar próximos eventos (próximos 30 dias)
+            const today = new Date();
+            const { collection, query, where, getDocs } = window.firestoreMethods;
+            const q = query(
+                collection(window.firebaseDb, 'escalas'),
+                where('date', '>=', today.toISOString().split('T')[0])
+            );
+
+            const snapshot = await getDocs(q);
+            const escalas = [];
+            
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const escalaTeam = data.team?.toLowerCase();
+                
+                // Filtrar apenas escalas dos times que o líder gerencia
+                if (leaderTeams.includes(escalaTeam)) {
+                    escalas.push({
+                        id: doc.id,
+                        ...data
+                    });
+                }
+            });
+
+            // Agrupar por evento (data + hora)
+            const groupedEvents = {};
+            escalas.forEach(escala => {
+                const key = `${escala.date}_${escala.time}`;
+                if (!groupedEvents[key]) {
+                    groupedEvents[key] = {
+                        date: escala.date,
+                        time: escala.time,
+                        eventName: escala.eventName || '',
+                        teams: {}
+                    };
+                }
+                const team = escala.team.toLowerCase();
+                if (!groupedEvents[key].teams[team]) {
+                    groupedEvents[key].teams[team] = [];
+                }
+                groupedEvents[key].teams[team].push(escala);
+            });
+
+            // Ordenar eventos por data
+            const sortedEvents = Object.values(groupedEvents).sort((a, b) => {
+                const dateA = new Date(a.date + 'T' + a.time);
+                const dateB = new Date(b.date + 'T' + b.time);
+                return dateA - dateB;
+            });
+
+            if (sortedEvents.length === 0) {
+                listContainer.innerHTML = '<div class="text-center py-8"><p class="text-gray-600">✅ Não há próximos cultos com voluntários escalados.</p></div>';
+                return;
+            }
+
+            // Renderizar lista de eventos para download
+            renderDownloadScheduleList(sortedEvents, leaderTeams);
+        }
+
+        function renderDownloadScheduleList(events, leaderTeams) {
+            const listContainer = document.getElementById('download-schedule-list');
+            
+            const teamConfig = {
+                welcome: { name: 'Welcome', icon: '👋', color: 'bg-blue-50 border-blue-300' },
+                backstage: { name: 'Backstage', icon: '🤝', color: 'bg-gray-50 border-gray-300' },
+                parking: { name: 'Parking', icon: '🚗', color: 'bg-red-50 border-red-300' },
+                kids: { name: 'Kids', icon: '👶', color: 'bg-yellow-50 border-yellow-300' },
+                comunicacao: { name: 'Comunicação', icon: '📢', color: 'bg-purple-50 border-purple-300' }
+            };
+
+            let html = '<div class="space-y-4">';
+            
+            events.forEach((event, eventIndex) => {
+                const dateObj = new Date(event.date + 'T' + event.time);
+                const day = dateObj.getDate().toString().padStart(2, '0');
+                const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+                const year = dateObj.getFullYear().toString().slice(-2);
+                const eventNameDisplay = event.eventName ? event.eventName : '';
+                const timeStr = event.time === '00:00' ? '' : `${event.time}`;
+                
+                // Contar total de voluntários por time
+                Object.entries(event.teams).forEach(([teamKey, volunteers]) => {
+                    if (!leaderTeams.includes(teamKey)) return;
+                    
+                    const config = teamConfig[teamKey];
+                    const volunteerCount = volunteers.length;
+                    
+                    html += `
+                        <div class="border-2 rounded-lg p-4 ${config.color} hover:shadow-md transition">
+                            <div class="flex items-center justify-between mb-2">
+                                <div>
+                                    <div class="font-semibold text-base text-gray-800">${day}/${month}/${year} ${timeStr ? `- ${timeStr}` : ''}</div>
+                                    <div class="text-sm text-gray-600">${eventNameDisplay}</div>
+                                    <div class="flex items-center gap-2 mt-1">
+                                        <span class="text-lg">${config.icon}</span>
+                                        <span class="font-semibold text-sm">${config.name}</span>
+                                        <span class="text-xs bg-white px-2 py-1 rounded-full text-gray-700">${volunteerCount} ${volunteerCount === 1 ? 'voluntário' : 'voluntários'}</span>
+                                    </div>
+                                </div>
+                                <button class="download-event-btn bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition flex items-center gap-2 text-sm font-medium"
+                                        data-event-date="${event.date}"
+                                        data-event-time="${event.time}"
+                                        data-event-name="${eventNameDisplay}"
+                                        data-team="${teamKey}">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                                    </svg>
+                                    <span>Baixar</span>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+            });
+
+            html += '</div>';
+            listContainer.innerHTML = html;
+
+            // Adicionar event listeners aos botões de download
+            document.querySelectorAll('.download-event-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    await downloadScheduleAsJPEG({
+                        date: btn.dataset.eventDate,
+                        time: btn.dataset.eventTime,
+                        eventName: btn.dataset.eventName,
+                        team: btn.dataset.team
+                    });
+                });
+            });
+        }
+
+        async function downloadScheduleAsJPEG(eventData) {
+            try {
+                // Mostrar loading
+                const loadingDiv = document.createElement('div');
+                loadingDiv.id = 'download-loading';
+                loadingDiv.className = 'fixed inset-0 bg-black bg-opacity-70 z-[60] flex items-center justify-center';
+                loadingDiv.innerHTML = `
+                    <div class="bg-white rounded-lg p-6 shadow-2xl text-center">
+                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+                        <p class="text-gray-800 font-semibold">📸 Gerando imagem...</p>
+                        <p class="text-gray-600 text-sm mt-2">Aguarde um momento</p>
+                    </div>
+                `;
+                document.body.appendChild(loadingDiv);
+
+                // Buscar voluntários do evento
+                const { collection, query, where, getDocs } = window.firestoreMethods;
+                const q = query(
+                    collection(window.firebaseDb, 'escalas'),
+                    where('date', '==', eventData.date),
+                    where('time', '==', eventData.time),
+                    where('team', '==', eventData.team)
+                );
+
+                const snapshot = await getDocs(q);
+                const volunteers = [];
+                
+                snapshot.forEach(doc => {
+                    volunteers.push({
+                        id: doc.id,
+                        ...doc.data()
+                    });
+                });
+
+                // Ordenar voluntários por função
+                volunteers.sort((a, b) => {
+                    const roleA = (a.role || '').toLowerCase();
+                    const roleB = (b.role || '').toLowerCase();
+                    return roleA.localeCompare(roleB, 'pt-BR');
+                });
+
+                // Criar elemento HTML temporário para a imagem
+                const tempDiv = await createScheduleImageHTML(eventData, volunteers);
+                document.body.appendChild(tempDiv);
+
+                // Aguardar um pouco para garantir que as imagens sejam carregadas
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                // Usar html2canvas para converter em imagem
+                const canvas = await html2canvas(tempDiv, {
+                    backgroundColor: '#ffffff',
+                    scale: 2,
+                    useCORS: true,
+                    logging: false
+                });
+
+                // Remover elemento temporário
+                document.body.removeChild(tempDiv);
+
+                // Converter canvas para JPEG e fazer download
+                const imageData = canvas.toDataURL('image/jpeg', 0.95);
+                
+                // Criar nome do arquivo
+                const dateObj = new Date(eventData.date + 'T' + eventData.time);
+                const day = dateObj.getDate().toString().padStart(2, '0');
+                const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+                const year = dateObj.getFullYear().toString().slice(-2);
+                const hours = dateObj.getHours().toString().padStart(2, '0');
+                const minutes = dateObj.getMinutes().toString().padStart(2, '0');
+                
+                const teamConfig = {
+                    welcome: 'Welcome',
+                    backstage: 'Backstage',
+                    parking: 'Parking',
+                    kids: 'Kids',
+                    comunicacao: 'Comunicacao'
+                };
+                const teamName = teamConfig[eventData.team] || eventData.team;
+                const fileName = `${teamName}_${day}_${month}_${year}_${hours}-${minutes}.jpeg`;
+                
+                // Download
+                const link = document.createElement('a');
+                link.download = fileName;
+                link.href = imageData;
+                link.click();
+
+                // Remover loading
+                loadingDiv.remove();
+
+                showModal('✅ Escala baixada com sucesso!');
+                
+                // Fechar modal de download
+                const modal = document.getElementById('download-schedule-modal');
+                modal.classList.add('hidden');
+                setTimeout(() => modal.style.display = 'none', 300);
+
+            } catch (error) {
+                console.error('❌ Erro ao gerar JPEG:', error);
+                document.getElementById('download-loading')?.remove();
+                showModal('❌ Erro ao gerar imagem. Tente novamente.');
+            }
+        }
+
+        async function createScheduleImageHTML(eventData, volunteers) {
+            const teamConfig = {
+                welcome: { name: 'Welcome', icon: '👋', bgColor: '#EFF6FF', borderColor: '#3B82F6' },
+                backstage: { name: 'Backstage', icon: '🤝', bgColor: '#F9FAFB', borderColor: '#6B7280' },
+                parking: { name: 'Parking', icon: '🚗', bgColor: '#FEE2E2', borderColor: '#EF4444' },
+                kids: { name: 'Kids', icon: '👶', bgColor: '#FEF3C7', borderColor: '#F59E0B' },
+                comunicacao: { name: 'Comunicação', icon: '📢', bgColor: '#F3E8FF', borderColor: '#A855F7' }
+            };
+
+            const config = teamConfig[eventData.team] || { name: eventData.team, icon: '📋', bgColor: '#F3F4F6', borderColor: '#9CA3AF' };
+            
+            const dateObj = new Date(eventData.date + 'T' + eventData.time);
+            const day = dateObj.getDate().toString().padStart(2, '0');
+            const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+            const year = dateObj.getFullYear();
+            const timeStr = eventData.time === '00:00' ? '' : ` - ${eventData.time}`;
+            
+            const tempDiv = document.createElement('div');
+            tempDiv.style.cssText = `
+                position: fixed;
+                left: -9999px;
+                top: 0;
+                width: 800px;
+                background: white;
+                padding: 40px;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            `;
+
+            let volunteersHtml = '';
+            volunteers.forEach(v => {
+                const photoUrl = v.userPhoto || 'Zele logo.png';
+                const functionDisplay = v.role ? v.role : 'Voluntário';
+                
+                volunteersHtml += `
+                    <div style="display: flex; align-items: center; gap: 16px; padding: 16px; background: white; border-radius: 12px; border: 2px solid #E5E7EB; margin-bottom: 12px;">
+                        <img src="${photoUrl}" alt="${v.userName}" 
+                             style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 3px solid ${config.borderColor};"
+                             onerror="this.src='Zele logo.png'">
+                        <div style="flex: 1;">
+                            <div style="font-size: 18px; font-weight: 600; color: #1F2937; margin-bottom: 4px;">${v.userName}</div>
+                            <div style="font-size: 14px; color: #6B7280; background: ${config.bgColor}; padding: 4px 12px; border-radius: 6px; display: inline-block; border: 1px solid ${config.borderColor};">${functionDisplay}</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            tempDiv.innerHTML = `
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 16px 16px 0 0; text-align: center;">
+                    <img src="Volunteers logo.png" alt="Logo" style="width: 120px; height: auto; margin: 0 auto 20px; display: block;" onerror="this.style.display='none'">
+                    <div style="color: white; font-size: 28px; font-weight: bold; margin-bottom: 8px;">${config.icon} ${config.name}</div>
+                    <div style="color: rgba(255,255,255,0.9); font-size: 20px; margin-bottom: 4px;">${day}/${month}/${year}${timeStr}</div>
+                    ${eventData.eventName ? `<div style="color: rgba(255,255,255,0.9); font-size: 16px;">${eventData.eventName}</div>` : ''}
+                </div>
+                <div style="background: ${config.bgColor}; padding: 30px; border-radius: 0 0 16px 16px; border: 3px solid ${config.borderColor}; border-top: none;">
+                    <div style="font-size: 20px; font-weight: 700; color: #374151; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid ${config.borderColor};">
+                        📋 Voluntários Escalados (${volunteers.length})
+                    </div>
+                    ${volunteersHtml}
+                </div>
+            `;
+
+            return tempDiv;
         }
         
             console.log('✅ App inicializado');
