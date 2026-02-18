@@ -347,6 +347,10 @@
         .period-btn:hover {
             transform: scale(1.05);
         }
+        #share-whatsapp-btn:hover {
+            background-color: #1fa855 !important;
+            opacity: 0.95;
+        }
     </style>
 </head>
 <body style="background-color: #cdc8c0;">
@@ -12534,6 +12538,171 @@
             });
         }
 
+        // ========================================
+        // 📱 WHATSAPP SHARING CONFIGURATION
+        // ========================================
+        
+        const whatsappGroups = {
+            'welcome': 'https://chat.whatsapp.com/I840GVg8NZJ8UudM1J8rOG',
+            'parking': 'https://chat.whatsapp.com/FcsOgz4u05WDWpDAeqOP4d',
+            'backstage': 'https://chat.whatsapp.com/FkjPIwOxocVEodLkVhJjH7',
+            'kids': 'https://chat.whatsapp.com/G3ZUXRVGmqX6PVHTVFkhI6'
+        };
+
+        const teamNames = {
+            'welcome': 'Welcome',
+            'parking': 'Parking',
+            'backstage': 'Backstage',
+            'kids': 'Kids',
+            'comunicacao': 'Comunicação'
+        };
+
+        function generateWhatsAppMessage(eventData, volunteerCount) {
+            const teamName = teamNames[eventData.team.toLowerCase()] || eventData.team;
+            const dateObj = new Date(eventData.date + 'T' + eventData.time);
+            const day = dateObj.getDate().toString().padStart(2, '0');
+            const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+            const year = dateObj.getFullYear();
+            const hours = dateObj.getHours().toString().padStart(2, '0');
+            const minutes = dateObj.getMinutes().toString().padStart(2, '0');
+            
+            const eventTitle = eventData.eventName || 'Culto';
+            
+            return `Olá! Segue a escala do *${teamName}*:
+📋 *${eventTitle}*
+📅 Data: ${day}/${month}/${year}
+⚠️ Chegar às ${hours}:${minutes}
+
+Voluntários escalados: ${volunteerCount} ${volunteerCount === 1 ? 'pessoa' : 'pessoas'}
+
+_Imagem anexada com a escala completa_`;
+        }
+
+        async function shareToWhatsApp(eventData, jpegBlob, fileName, volunteerCount) {
+            const teamKey = eventData.team.toLowerCase();
+            const whatsappLink = whatsappGroups[teamKey];
+            
+            if (!whatsappLink) {
+                showModal('❌ Grupo do WhatsApp não configurado para este time');
+                return;
+            }
+            
+            const message = generateWhatsAppMessage(eventData, volunteerCount);
+            
+            // Tentar Web Share API primeiro (se disponível e suportar arquivos)
+            if (navigator.share) {
+                try {
+                    const file = new File([jpegBlob], fileName, { type: 'image/jpeg' });
+                    
+                    // Verificar se o navegador suporta compartilhar arquivos
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        await navigator.share({
+                            title: `Escala - ${eventData.team}`,
+                            text: message,
+                            files: [file]
+                        });
+                        
+                        showModal('✅ Compartilhado com sucesso!');
+                        return;
+                    }
+                } catch (error) {
+                    if (error.name !== 'AbortError') {
+                        console.log('Web Share API falhou, usando fallback:', error);
+                    } else {
+                        // Usuário cancelou o compartilhamento
+                        return;
+                    }
+                }
+            }
+            
+            // Fallback: WhatsApp Web link
+            openWhatsAppWebFallback(whatsappLink, message);
+        }
+
+        function openWhatsAppWebFallback(whatsappLink, message) {
+            const encodedText = encodeURIComponent(message);
+            const urlWhatsApp = `${whatsappLink}?text=${encodedText}`;
+            
+            window.open(urlWhatsApp, '_blank');
+            
+            // Mostrar instrução
+            showModal(`💡 O WhatsApp foi aberto com a mensagem pronta.<br>Por favor, anexe manualmente a imagem que foi baixada.`);
+        }
+
+        function showDownloadSuccessModal(eventData, jpegBlob, fileName, volunteerCount) {
+            // Remover modal anterior se existir
+            document.getElementById('download-success-modal')?.remove();
+            
+            const teamName = teamNames[eventData.team.toLowerCase()] || eventData.team;
+            
+            const modal = document.createElement('div');
+            modal.id = 'download-success-modal';
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-[70] flex items-center justify-center p-4';
+            
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg shadow-2xl max-w-md w-full p-6">
+                    <div class="text-center mb-6">
+                        <div class="text-6xl mb-4">✅</div>
+                        <h3 class="text-xl font-bold text-gray-800 mb-2">Escala baixada com sucesso!</h3>
+                        <p class="text-sm text-gray-600 bg-gray-50 rounded-lg p-2 font-mono">${fileName}</p>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        <button id="download-again-btn" class="w-full flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-3 px-4 rounded-lg transition">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                            </svg>
+                            📥 Baixar Novamente
+                        </button>
+                        
+                        <button id="share-whatsapp-btn" class="w-full flex items-center justify-center gap-2 text-white font-semibold py-3 px-4 rounded-lg transition" style="background-color: #25D366;">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                            </svg>
+                            Enviar para WhatsApp do ${teamName}
+                        </button>
+                    </div>
+                    
+                    <div class="mt-4 text-xs text-gray-500 text-center bg-blue-50 p-3 rounded-lg">
+                        ℹ️ ${navigator.share ? 'Você pode compartilhar direto com a imagem anexada usando o menu de compartilhamento.' : 'No computador, a imagem será baixada e você precisará anexá-la manualmente no WhatsApp.'}
+                    </div>
+                    
+                    <button id="close-success-modal-btn" class="mt-4 w-full text-gray-600 hover:text-gray-800 py-2 text-sm font-medium">
+                        Fechar
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Event listeners
+            document.getElementById('download-again-btn').addEventListener('click', () => {
+                const link = document.createElement('a');
+                link.download = fileName;
+                const url = URL.createObjectURL(jpegBlob);
+                link.href = url;
+                link.click();
+                // Revogar URL para evitar memory leak
+                setTimeout(() => URL.revokeObjectURL(url), 100);
+                showModal('✅ Download iniciado novamente!');
+            });
+            
+            document.getElementById('share-whatsapp-btn').addEventListener('click', () => {
+                modal.remove();
+                shareToWhatsApp(eventData, jpegBlob, fileName, volunteerCount);
+            });
+            
+            document.getElementById('close-success-modal-btn').addEventListener('click', () => {
+                modal.remove();
+            });
+            
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            });
+        }
+
         async function downloadScheduleAsJPEG(eventData) {
             try {
                 // Mostrar loading
@@ -12594,9 +12763,6 @@
                 // Remover elemento temporário
                 document.body.removeChild(tempDiv);
 
-                // Converter canvas para JPEG e fazer download
-                const imageData = canvas.toDataURL('image/jpeg', 0.95);
-                
                 // Criar nome do arquivo
                 const dateObj = new Date(eventData.date + 'T' + eventData.time);
                 const day = dateObj.getDate().toString().padStart(2, '0');
@@ -12615,20 +12781,27 @@
                 const teamName = teamConfig[eventData.team] || eventData.team;
                 const fileName = `${teamName}_${day}_${month}_${year}_${hours}-${minutes}.jpeg`;
                 
+                // Converter canvas para blob
+                const jpegBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
+                
                 // Download
                 const link = document.createElement('a');
                 link.download = fileName;
-                link.href = imageData;
+                const url = URL.createObjectURL(jpegBlob);
+                link.href = url;
                 link.click();
+                // Revogar URL para evitar memory leak
+                setTimeout(() => URL.revokeObjectURL(url), 100);
 
                 // Remover loading
                 loadingDiv.remove();
-
-                showModal('✅ Escala baixada com sucesso!');
                 
                 // Fechar modal de download
                 const modal = document.getElementById('download-schedule-modal');
                 modal.classList.add('hidden');
+
+                // Mostrar modal de sucesso com opção de compartilhar no WhatsApp
+                showDownloadSuccessModal(eventData, jpegBlob, fileName, volunteers.length);
 
             } catch (error) {
                 console.error('❌ Erro ao gerar JPEG:', error);
